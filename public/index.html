@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Spiral Art</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&family=DM+Serif+Display:ital@0;1&display=swap');
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #2e2e2e;
+  --text: #f0ede8;
+  --muted: #666;
+  --accent: #c8f55a;
+  --accent-dark: #9dc43e;
+  --pill: #2a2a2a;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ── SCREENS ─────────────────────────────────────────────────────────────── */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.screen.hidden {
+  opacity: 0; pointer-events: none; transform: translateY(20px);
+}
+
+/* ── HEADER ──────────────────────────────────────────────────────────────── */
+.header {
+  padding: 1rem 1.25rem 0.75rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.35rem; color: var(--text); letter-spacing: -0.02em;
+}
+.logo em { color: var(--accent); font-style: italic; }
+.header-action {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--muted); font-size: 1rem;
+  transition: all 0.15s;
+}
+.header-action:active { background: var(--border); transform: scale(0.94); }
+
+/* ── CROP SCREEN ─────────────────────────────────────────────────────────── */
+#screen-crop { background: #000; }
+
+.crop-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  padding: 3rem 1.25rem 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+}
+.crop-title { font-size: 0.85rem; color: rgba(255,255,255,0.7); letter-spacing: 0.06em; text-transform: uppercase; }
+.crop-btn {
+  padding: 0.5rem 1.2rem; border-radius: 99px;
+  font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500;
+  border: none; cursor: pointer; transition: all 0.15s;
+}
+.crop-btn.cancel { background: rgba(255,255,255,0.12); color: white; }
+.crop-btn.confirm { background: var(--accent); color: #111; font-weight: 700; }
+.crop-btn:active { transform: scale(0.95); }
+
+.crop-viewport {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+#crop-canvas-bg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+}
+
+.crop-circle-overlay {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  pointer-events: none; z-index: 5;
+}
+
+.crop-grid {
+  position: absolute; border-radius: 50%;
+  pointer-events: none; z-index: 6;
+  overflow: hidden;
+}
+.crop-grid::before, .crop-grid::after {
+  content: '';
+  position: absolute; background: rgba(200,245,90,0.25);
+}
+.crop-grid::before { left: 33.3%; top: 0; width: 1px; height: 100%; box-shadow: calc(33.3%) 0 0 0 rgba(200,245,90,0.25); }
+.crop-grid::after  { top: 33.3%; left: 0; height: 1px; width: 100%; box-shadow: 0 calc(33.3%) 0 0 rgba(200,245,90,0.25); }
+
+.crop-footer {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  padding: 1.5rem 2rem calc(2rem + var(--safe-bottom));
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+}
+.crop-zoom-track {
+  width: 100%; height: 3px; background: rgba(255,255,255,0.2);
+  border-radius: 99px; position: relative; cursor: pointer;
+}
+.crop-zoom-fill { height: 100%; background: var(--accent); border-radius: 99px; width: 30%; }
+.crop-zoom-thumb {
+  width: 22px; height: 22px; border-radius: 50%; background: white;
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  left: 30%; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  cursor: grab;
+}
+.crop-hint { text-align: center; color: rgba(255,255,255,0.4); font-size: 0.72rem; margin-top: 0.8rem; letter-spacing: 0.04em; }
+
+/* ── MAIN SCREEN ─────────────────────────────────────────────────────────── */
+#screen-main {
+  background: var(--bg);
+}
+
+/* ── CANVAS AREA ─────────────────────────────────────────────────────────── */
+.canvas-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 0.5rem 1.25rem;
+  position: relative; min-height: 0;
+}
+
+.canvas-ring {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border), 0 20px 60px rgba(0,0,0,0.5);
+}
+.canvas-ring canvas { display: block; border-radius: 50%; }
+
+/* Empty state */
+.empty-state {
+  position: absolute; inset: 0; border-radius: 50%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0.75rem; cursor: pointer;
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  transition: border-color 0.2s, background 0.2s;
+}
+.empty-state:active { background: var(--surface2); border-color: var(--accent); }
+.empty-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--surface2); display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: var(--muted);
+}
+.empty-label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+
+/* Loading overlay */
+.loading-overlay {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: rgba(15,15,15,0.85);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.75rem; z-index: 10;
+}
+.loading-overlay.show { display: flex; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* Float actions */
+.float-actions {
+  position: absolute; right: 1.5rem; top: 50%;
+  transform: translateY(-50%);
+  display: none; flex-direction: column; gap: 0.5rem;
+}
+.float-actions.show { display: flex; }
+.fab {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; color: var(--text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transition: all 0.15s; position: relative;
+}
+.fab:active { transform: scale(0.9); }
+.fab.accent { background: var(--accent); color: #111; border-color: var(--accent); }
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.35rem; padding: 0.4rem 0.75rem;
+  flex-shrink: 0;
+}
+.mode-btn {
+  padding: 0.45rem 1rem; border-radius: 99px;
+  font-size: 0.78rem; font-weight: 500;
+  border: none; cursor: pointer;
+  background: transparent; color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+.mode-btn.active { background: var(--accent); color: #111; font-weight: 700; }
+.mode-btn:active:not(.active) { background: var(--surface2); }
+
+/* ── CONTROLS ────────────────────────────────────────────────────────────── */
+.controls-panel {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 1rem 1.25rem calc(1.25rem + var(--safe-bottom));
+  flex-shrink: 0;
+}
+
+/* Tab bar */
+.tab-bar {
+  display: flex; gap: 0;
+  margin-bottom: 1.1rem;
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 3px;
+}
+.tab-item {
+  flex: 1; text-align: center;
+  padding: 0.45rem 0.3rem; border-radius: 8px;
+  font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em;
+  color: var(--muted); cursor: pointer;
+  transition: all 0.2s; user-select: none;
+  text-transform: uppercase;
+}
+.tab-item.active { background: var(--bg); color: var(--text); }
+
+/* Slider area */
+.slider-area {
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.slider-row {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+.slider-labels {
+  display: flex; justify-content: space-between;
+  font-size: 0.68rem; color: var(--muted);
+}
+
+/* Custom slider */
+.track-wrap {
+  position: relative; height: 36px; display: flex; align-items: center;
+  cursor: pointer;
+}
+.track-bg {
+  width: 100%; height: 6px; border-radius: 99px;
+  background: var(--surface2);
+  position: relative; overflow: hidden;
+}
+.track-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--border), var(--accent));
+  transition: width 0.05s;
+}
+.track-thumb {
+  position: absolute; top: 50%; width: 26px; height: 26px;
+  border-radius: 50%; background: white;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  transition: transform 0.1s, box-shadow 0.1s;
+  pointer-events: none;
+}
+.track-wrap:active .track-thumb { transform: translate(-50%, -50%) scale(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+/* Haptic dots */
+.haptic-dots {
+  display: flex; justify-content: space-between; padding: 0 2px;
+}
+.haptic-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--border);
+}
+.haptic-dot.active { background: var(--accent); }
+
+/* Generate button */
+.gen-btn {
+  width: 100%; padding: 0.9rem;
+  background: var(--accent); color: #111;
+  border: none; border-radius: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem; font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer; margin-top: 0.75rem;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+}
+.gen-btn:active { transform: scale(0.97); background: var(--accent-dark); }
+.gen-btn.generating { background: var(--surface2); color: var(--muted); pointer-events: none; }
+
+/* ── EXPORT SHEET ────────────────────────────────────────────────────────── */
+.sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 100; display: none; align-items: flex-end;
+  backdrop-filter: blur(4px);
+}
+.sheet-backdrop.show { display: flex; }
+.sheet {
+  width: 100%; background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 1.25rem 1.25rem calc(1.5rem + var(--safe-bottom));
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-backdrop.show .sheet { transform: translateY(0); }
+.sheet-handle {
+  width: 36px; height: 4px; border-radius: 99px;
+  background: var(--border); margin: 0 auto 1.2rem;
+}
+.sheet-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+.export-options { display: flex; flex-direction: column; gap: 0.5rem; }
+.export-opt {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.9rem 1rem; border-radius: 12px;
+  background: var(--surface2); cursor: pointer;
+  transition: background 0.15s; border: none; width: 100%;
+  font-family: 'DM Sans', sans-serif; color: var(--text);
+  text-align: left;
+}
+.export-opt:active { background: var(--border); }
+.export-opt-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+.export-opt-label { font-weight: 500; font-size: 0.88rem; }
+.export-opt-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* ── TOAST ────────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: calc(7rem + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: #111;
+  padding: 0.6rem 1.2rem; border-radius: 99px;
+  font-size: 0.8rem; font-weight: 500;
+  white-space: nowrap; opacity: 0;
+  transition: all 0.25s; z-index: 200; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Hidden inputs */
+#fileInput { display: none; }
+#imgCanvas  { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ── CROP SCREEN ──────────────────────────────────────────────────────── -->
+<div class="screen hidden" id="screen-crop">
+  <div class="crop-header">
+    <span class="crop-title">Posicione a imagem</span>
+    <div style="display:flex;gap:0.5rem">
+      <button class="crop-btn cancel" onclick="cancelCrop()">Cancelar</button>
+      <button class="crop-btn confirm" onclick="confirmCrop()">Usar ✓</button>
+    </div>
+  </div>
+
+  <div class="crop-viewport" id="cropViewport">
+    <canvas id="cropDisplayCanvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <div class="crop-circle-overlay" id="cropCircle"></div>
+    <div class="crop-grid" id="cropGrid"></div>
+  </div>
+
+  <div class="crop-footer">
+    <div class="track-wrap" id="zoomTrack">
+      <div class="track-bg">
+        <div class="track-fill" id="zoomFill" style="width:20%"></div>
+      </div>
+      <div class="track-thumb" id="zoomThumb" style="left:20%"></div>
+    </div>
+    <div class="crop-hint">Arraste para reposicionar · Deslize para ampliar</div>
+  </div>
+</div>
+
+<!-- ── MAIN SCREEN ──────────────────────────────────────────────────────── -->
+<div class="screen" id="screen-main">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">Spiral <em>Art</em></div>
+    <div class="header-action" onclick="showExportSheet()" id="downloadBtn" style="display:none">↓</div>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeHalftone" onclick="setMode('halftone')">Revelado</button>
+    <button class="mode-btn" id="modeTemplate" onclick="setMode('template')">Para Pintar</button>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-area">
+    <div class="canvas-ring" id="canvasRing" style="width:300px;height:300px">
+      <canvas id="spiralCanvas" width="300" height="300"></canvas>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState" onclick="triggerUpload()">
+        <div class="empty-icon">🖼</div>
+        <div class="empty-label">Toque para adicionar foto</div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Gerando…</div>
+      </div>
+    </div>
+
+    <!-- Float actions -->
+    <div class="float-actions" id="floatActions">
+      <div class="fab" onclick="triggerUpload()" title="Trocar foto">🔄</div>
+      <div class="fab accent" onclick="generate()" title="Gerar novamente">↺</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-panel">
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab-item active" id="tab-rings"    onclick="switchTab('rings')">Voltas</div>
+      <div class="tab-item"        id="tab-thickness" onclick="switchTab('thickness')">Espessura</div>
+      <div class="tab-item"        id="tab-contrast"  onclick="switchTab('contrast')">Contraste</div>
+      <div class="tab-item"        id="tab-organic"   onclick="switchTab('organic')">Orgânico</div>
+    </div>
+
+    <!-- Sliders -->
+    <div class="slider-area">
+
+      <!-- RINGS -->
+      <div class="slider-row" id="ctrl-rings">
+        <div class="slider-labels"><span>Poucas</span><span>Muitas</span></div>
+        <div class="track-wrap" id="trk-rings">
+          <div class="track-bg"><div class="track-fill" id="fill-rings" style="width:50%"></div></div>
+          <div class="track-thumb" id="thumb-rings" style="left:50%"></div>
+        </div>
+        <div class="haptic-dots" id="dots-rings"></div>
+      </div>
+
+      <!-- THICKNESS -->
+      <div class="slider-row" id="ctrl-thickness" style="display:none">
+        <div class="slider-labels"><span>Fino</span><span>Espesso</span></div>
+        <div class="track-wrap" id="trk-thickness">
+          <div class="track-bg"><div class="track-fill" id="fill-thickness" style="width:50%"></div></div>
+          <div class="track-thumb" id="thumb-thickness" style="left:50%"></div>
+        </div>
+        <div class="haptic-dots" id="dots-thickness"></div>
+      </div>
+
+      <!-- CONTRAST -->
+      <div class="slider-row" id="ctrl-contrast" style="display:none">
+        <div class="slider-labels"><span>Suave</span><span>Intenso</span></div>
+        <div class="track-wrap" id="trk-contrast">
+          <div class="track-bg"><div class="track-fill" id="fill-contrast" style="width:45%"></div></div>
+          <div class="track-thumb" id="thumb-contrast" style="left:45%"></div>
+        </div>
+        <div class="haptic-dots" id="dots-contrast"></div>
+      </div>
+
+      <!-- ORGANIC -->
+      <div class="slider-row" id="ctrl-organic" style="display:none">
+        <div class="slider-labels"><span>Geométrico</span><span>À mão</span></div>
+        <div class="track-wrap" id="trk-organic">
+          <div class="track-bg"><div class="track-fill" id="fill-organic" style="width:20%"></div></div>
+          <div class="track-thumb" id="thumb-organic" style="left:20%"></div>
+        </div>
+        <div class="haptic-dots" id="dots-organic"></div>
+      </div>
+
+    </div>
+
+    <button class="gen-btn" id="genBtn" onclick="generate()">
+      <span>✦</span> Gerar Espiral
+    </button>
+  </div>
+</div>
+
+<!-- ── EXPORT SHEET ─────────────────────────────────────────────────────── -->
+<div class="sheet-backdrop" id="exportSheet" onclick="hideExportSheet(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Salvar arte</div>
+    <div class="export-options">
+      <button class="export-opt" onclick="exportPNG()">
+        <div class="export-opt-icon" style="background:#1e2a1e">🖼</div>
+        <div>
+          <div class="export-opt-label">Imagem PNG</div>
+          <div class="export-opt-sub">Alta resolução · ideal para compartilhar</div>
+        </div>
+      </button>
+      <button class="export-opt" onclick="exportSVG()">
+        <div class="export-opt-icon" style="background:#1a1a2e">✦</div>
+        <div>
+          <div class="export-opt-label">Vetorial SVG</div>
+          <div class="export-opt-sub">Qualidade infinita · ideal para corte a laser</div>
+        </div>
+      </button>
+      <button class="export-opt" onclick="exportPDF()">
+        <div class="export-opt-icon" style="background:#2e1a1a">📄</div>
+        <div>
+          <div class="export-opt-label">PDF para Impressão</div>
+          <div class="export-opt-sub">Página A4 centralizada · pronto para imprimir</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Hidden -->
+<input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)">
+<canvas id="imgCanvas"></canvas>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const state = {
+  mode: 'halftone',
+  rings: 0.5,      // 0..1 → turns 25..90
+  thickness: 0.5,  // 0..1 → thickness% 10..90
+  contrast: 0.45,  // 0..1 → intensity 0.3..4.0 + css contrast
+  organic: 0.2,    // 0..1 → jitter 0..80
+  gap: 0.28,       // fixed
+  hasImage: false,
+  spiralPaths: [],
+  color: '#111111',
+  // crop state
+  srcImg: null,
+  cropX: 0, cropY: 0, cropScale: 1,
+  cropMinScale: 1,
+  croppedBitmap: null,
+};
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initHapticDots();
+  setupSliders();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+});
+
+function resizeCanvas() {
+  const area = document.querySelector('.canvas-area');
+  const panel = document.querySelector('.controls-panel');
+  const header = document.querySelector('.header');
+  const modeBar = document.querySelector('.mode-toggle');
+  const available = area.offsetHeight;
+  const size = Math.min(available - 24, window.innerWidth - 48, 520);
+  const ring = document.getElementById('canvasRing');
+  ring.style.width = size + 'px';
+  ring.style.height = size + 'px';
+  const canvas = document.getElementById('spiralCanvas');
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+}
+
+// ── HAPTIC DOTS ────────────────────────────────────────────────────────────
+function initHapticDots() {
+  ['rings','thickness','contrast','organic'].forEach(id => {
+    const el = document.getElementById('dots-' + id);
+    for (let i = 0; i < 9; i++) {
+      const d = document.createElement('div');
+      d.className = 'haptic-dot';
+      el.appendChild(d);
+    }
+  });
+}
+function updateDots(id, val) {
+  const dots = document.getElementById('dots-' + id).children;
+  const active = Math.round(val * (dots.length - 1));
+  for (let i = 0; i < dots.length; i++) {
+    dots[i].classList.toggle('active', i <= active);
+  }
+}
+
+// ── SLIDERS ────────────────────────────────────────────────────────────────
+function setupSliders() {
+  [
+    ['rings', 'rings'],
+    ['thickness', 'thickness'],
+    ['contrast', 'contrast'],
+    ['organic', 'organic'],
+  ].forEach(([trkId, stateKey]) => {
+    makeSlider('trk-' + trkId, 'fill-' + trkId, 'thumb-' + trkId, stateKey);
+    // Init visuals
+    setSliderVisual(trkId, state[stateKey]);
+  });
+}
+
+// ── LIVE GENERATE (debounced) ──────────────────────────────────────────────
+let liveTimer = null;
+
+function makeSlider(trkId, fillId, thumbId, stateKey) {
+  const trk = document.getElementById(trkId);
+  let dragging = false;
+
+  function getVal(clientX) {
+    const rect = trk.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+  function update(clientX) {
+    const v = getVal(clientX);
+    state[stateKey] = v;
+    const key = trkId.replace('trk-', '');
+    setSliderVisual(key, v);
+    updateDots(key, v);
+    // invalidate sample cache when contrast changes
+    if (stateKey === 'contrast') cachedSampleCtx = null;
+    scheduleLiveGenerate();
+  }
+
+  trk.addEventListener('touchstart', e => {
+    dragging = true;
+    update(e.touches[0].clientX);
+  }, { passive: true });
+  trk.addEventListener('touchmove', e => {
+    if (dragging) update(e.touches[0].clientX);
+  }, { passive: true });
+  trk.addEventListener('touchend', () => { dragging = false; });
+  trk.addEventListener('mousedown', e => { dragging = true; update(e.clientX); });
+  window.addEventListener('mousemove', e => { if (dragging) update(e.clientX); });
+  window.addEventListener('mouseup', () => { dragging = false; });
+}
+
+function setSliderVisual(key, val) {
+  const pct = (val * 100).toFixed(1) + '%';
+  document.getElementById('fill-' + key).style.width = pct;
+  document.getElementById('thumb-' + key).style.left = pct;
+  updateDots(key, val);
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+const tabs = ['rings','thickness','contrast','organic'];
+function switchTab(id) {
+  tabs.forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === id);
+    document.getElementById('ctrl-' + t).style.display = (t === id) ? '' : 'none';
+  });
+}
+
+// ── MODE ───────────────────────────────────────────────────────────────────
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('modeHalftone').classList.toggle('active', m === 'halftone');
+  document.getElementById('modeTemplate').classList.toggle('active', m === 'template');
+  if (state.hasImage) generate();
+}
+
+// ── UPLOAD ──────────────────────────────────────────────────────────────────
+function triggerUpload() { document.getElementById('fileInput').click(); }
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => { state.srcImg = img; openCrop(); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── CROP ────────────────────────────────────────────────────────────────────
+let cropPointers = [];
+let cropPinchDist0 = null;
+let cropScale0 = 1;
+let cropDragStart = null;
+let cropXstart = 0, cropYstart = 0;
+let cropCircleSize = 0;
+let cropVW = 0, cropVH = 0;
+
+function openCrop() {
+  const vp = document.getElementById('cropViewport');
+  cropVW = vp.offsetWidth;
+  cropVH = vp.offsetHeight;
+  cropCircleSize = Math.min(cropVW, cropVH) * 0.82;
+
+  // Position circle overlay
+  const circle = document.getElementById('cropCircle');
+  circle.style.width = cropCircleSize + 'px';
+  circle.style.height = cropCircleSize + 'px';
+  circle.style.left = (cropVW - cropCircleSize) / 2 + 'px';
+  circle.style.top  = (cropVH - cropCircleSize) / 2 + 'px';
+
+  const grid = document.getElementById('cropGrid');
+  grid.style.width = cropCircleSize + 'px';
+  grid.style.height = cropCircleSize + 'px';
+  grid.style.left = (cropVW - cropCircleSize) / 2 + 'px';
+  grid.style.top  = (cropVH - cropCircleSize) / 2 + 'px';
+
+  // Init crop transform
+  const img = state.srcImg;
+  const aspect = img.naturalWidth / img.naturalHeight;
+  let minS;
+  if (aspect > 1) {
+    minS = cropCircleSize / img.naturalHeight;
+  } else {
+    minS = cropCircleSize / img.naturalWidth;
+  }
+  state.cropMinScale = minS;
+  state.cropScale = minS * 1.1;
+  state.cropX = (cropVW - img.naturalWidth * state.cropScale) / 2;
+  state.cropY = (cropVH - img.naturalHeight * state.cropScale) / 2;
+
+  // Setup canvas
+  const dc = document.getElementById('cropDisplayCanvas');
+  dc.width = cropVW;
+  dc.height = cropVH;
+
+  // Setup zoom slider
+  const zoomPct = 20;
+  document.getElementById('zoomFill').style.width = zoomPct + '%';
+  document.getElementById('zoomThumb').style.left = zoomPct + '%';
+
+  setupCropInteraction();
+  setupZoomSlider();
+
+  drawCrop();
+
+  document.getElementById('screen-crop').classList.remove('hidden');
+  document.getElementById('screen-main').classList.add('hidden');
+}
+
+function drawCrop() {
+  const dc = document.getElementById('cropDisplayCanvas');
+  const ctx = dc.getContext('2d');
+  ctx.clearRect(0, 0, dc.width, dc.height);
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, dc.width, dc.height);
+  const img = state.srcImg;
+  ctx.drawImage(img, state.cropX, state.cropY,
+    img.naturalWidth * state.cropScale,
+    img.naturalHeight * state.cropScale);
+  ctx.restore();
+}
+
+function setupCropInteraction() {
+  const vp = document.getElementById('cropViewport');
+  vp.ontouchstart = e => {
+    if (e.touches.length === 1) {
+      cropDragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      cropXstart = state.cropX; cropYstart = state.cropY;
+    } else if (e.touches.length === 2) {
+      cropPinchDist0 = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      cropScale0 = state.cropScale;
+    }
+  };
+  vp.ontouchmove = e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && cropDragStart) {
+      const dx = e.touches[0].clientX - cropDragStart.x;
+      const dy = e.touches[0].clientY - cropDragStart.y;
+      state.cropX = cropXstart + dx;
+      state.cropY = cropYstart + dy;
+      clampCrop();
+      drawCrop();
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      state.cropScale = Math.max(state.cropMinScale, cropScale0 * dist / cropPinchDist0);
+      syncZoomSlider();
+      clampCrop();
+      drawCrop();
+    }
+  };
+  vp.ontouchend = e => {
+    if (e.touches.length < 2) cropPinchDist0 = null;
+    if (e.touches.length === 0) cropDragStart = null;
+  };
+}
+
+function setupZoomSlider() {
+  const trk = document.getElementById('zoomTrack');
+  let dragging = false;
+  function getZoom(clientX) {
+    const rect = trk.getBoundingClientRect();
+    const t = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    // t=0 → minScale, t=1 → minScale*3
+    return state.cropMinScale * (1 + t * 2.5);
+  }
+  function applyZoom(clientX) {
+    state.cropScale = getZoom(clientX);
+    syncZoomSlider();
+    clampCrop();
+    drawCrop();
+  }
+  trk.addEventListener('touchstart', e => { dragging=true; applyZoom(e.touches[0].clientX); }, {passive:true});
+  trk.addEventListener('touchmove',  e => { if(dragging) applyZoom(e.touches[0].clientX); }, {passive:true});
+  trk.addEventListener('touchend',   () => { dragging=false; });
+  trk.addEventListener('mousedown',  e => { dragging=true; applyZoom(e.clientX); });
+  window.addEventListener('mousemove', e => { if(dragging) applyZoom(e.clientX); });
+  window.addEventListener('mouseup',   () => { dragging=false; });
+}
+
+function syncZoomSlider() {
+  const t = (state.cropScale / state.cropMinScale - 1) / 2.5;
+  const pct = Math.max(0, Math.min(100, t * 100));
+  document.getElementById('zoomFill').style.width = pct + '%';
+  document.getElementById('zoomThumb').style.left = pct + '%';
+}
+
+function clampCrop() {
+  const img = state.srcImg;
+  const w = img.naturalWidth * state.cropScale;
+  const h = img.naturalHeight * state.cropScale;
+  const cx = cropVW / 2, cy = cropVH / 2;
+  const r = cropCircleSize / 2;
+  state.cropX = Math.min(cx - r, Math.max(cx + r - w, state.cropX));
+  state.cropY = Math.min(cy - r, Math.max(cy + r - h, state.cropY));
+}
+
+function cancelCrop() {
+  document.getElementById('screen-crop').classList.add('hidden');
+  document.getElementById('screen-main').classList.remove('hidden');
+}
+
+function confirmCrop() {
+  // Extract the circle region into a square bitmap
+  const size = 512;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = offscreen.height = size;
+  const ctx = offscreen.getContext('2d');
+
+  const cx = cropVW / 2, cy = cropVH / 2;
+  const r = cropCircleSize / 2;
+
+  // Source rect in cropDisplayCanvas coords
+  const srcX = cx - r, srcY = cy - r;
+  const srcW = cropCircleSize, srcH = cropCircleSize;
+
+  // Draw from the main image at the correct transform
+  ctx.drawImage(
+    state.srcImg,
+    (srcX - state.cropX) / state.cropScale,
+    (srcY - state.cropY) / state.cropScale,
+    srcW / state.cropScale,
+    srcH / state.cropScale,
+    0, 0, size, size
+  );
+
+  state.croppedBitmap = offscreen;
+  state.hasImage = true;
+
+  // Show empty state off
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('floatActions').classList.add('show');
+  document.getElementById('downloadBtn').style.display = 'flex';
+
+  cancelCrop();
+  generate();
+}
+
+// ── IMAGE SAMPLING ─────────────────────────────────────────────────────────
+let cachedSampleCtx = null;
+let cachedContrast = -1;
+
+function getBrightness(nx, ny) {
+  // nx, ny in -1..1
+  const SZ = 512;
+  const contrastVal = 0.5 + state.contrast * 3.5; // 0.5..4.0
+
+  if (!cachedSampleCtx || cachedContrast !== contrastVal) {
+    const c = document.getElementById('imgCanvas');
+    c.width = c.height = SZ;
+    const ctx = c.getContext('2d');
+    ctx.filter = `grayscale(1) contrast(${contrastVal})`;
+    ctx.drawImage(state.croppedBitmap, 0, 0, SZ, SZ);
+    cachedSampleCtx = ctx;
+    cachedContrast = contrastVal;
+  }
+
+  const px = Math.max(0, Math.min(SZ-1, Math.round((nx+1)/2*(SZ-1))));
+  const py = Math.max(0, Math.min(SZ-1, Math.round((ny+1)/2*(SZ-1))));
+  return cachedSampleCtx.getImageData(px, py, 1, 1).data[0] / 255;
+}
+
+// ── GENERATE ──────────────────────────────────────────────────────────────
+function generate(silent = false) {
+  if (!state.hasImage) { if (!silent) showToast('Adicione uma foto primeiro'); return; }
+
+  const overlay = document.getElementById('loadingOverlay');
+  const btn = document.getElementById('genBtn');
+
+  if (!silent) {
+    overlay.classList.add('show');
+    btn.classList.add('generating');
+    btn.innerHTML = '<span>⏳</span> Gerando…';
+  }
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    _generate();
+    if (!silent) {
+      overlay.classList.remove('show');
+      btn.classList.remove('generating');
+      btn.innerHTML = '<span>✦</span> Gerar Espiral';
+    }
+  }));
+}
+
+// live trigger also uses generate directly (silent)
+function scheduleLiveGenerate() {
+  if (!state.hasImage) return;
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => generate(true), 160);
+}
+
+function _generate() {
+  // Always invalidate sample cache — contrast may have changed
+  cachedSampleCtx = null;
+
+  // Map state to real params
+  const turns     = Math.round(25 + state.rings * 65);        // 25..90
+  const thickness = 0.1 + state.thickness * 0.8;              // 0.1..0.9
+  const gap       = state.gap;                                  // fixed 0.28
+  const intensity = 0.4 + state.contrast * 3.2;               // 0.4..3.6
+  const jitter    = state.organic * 0.8;                       // 0..0.8
+
+  const canvas  = document.getElementById('spiralCanvas');
+  const outSize = 1200; // internal render size
+  canvas.width  = canvas.height = outSize;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, outSize, outSize);
+
+  const cx = outSize / 2, cy = outSize / 2;
+  const maxR = outSize * 0.48;
+  const totalAngle = turns * 2 * Math.PI;
+  const steps = turns * 360;
+
+  // Spacing guard
+  const spiralSpacing = maxR / turns;
+  const paintZone     = spiralSpacing * (1 - gap);
+  const maxLw         = Math.max(0.5, paintZone * thickness);
+  const minLw         = Math.max(0.3, maxLw * 0.07);
+
+  // Smooth noise
+  const s1=Math.random()*1000, s2=Math.random()*1000;
+  const s3=Math.random()*1000, s4=Math.random()*1000;
+  const noise = t =>
+    Math.sin(t*23.7+s1)*.5 + Math.sin(t*7.3+s2)*.3 +
+    Math.sin(t*41.1+s3)*.13 + Math.sin(t*3.1+s4)*.07;
+
+  // Build points
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t     = i / steps;
+    const angle = t * totalAngle;
+    const r     = t * maxR;
+    const x     = cx + r * Math.cos(angle);
+    const y     = cy + r * Math.sin(angle);
+    const nx    = (x - cx) / maxR;
+    const ny    = (y - cy) / maxR;
+
+    let b = state.hasImage ? getBrightness(nx, ny) : Math.sqrt(nx*nx+ny*ny);
+    b = Math.pow(Math.max(0, Math.min(1, b)), 1 / intensity);
+
+    const base = minLw + (1 - b) * (maxLw - minLw);
+    const lw   = Math.max(0.3, base + jitter * base * 0.4 * noise(t));
+    points.push({ x, y, lw });
+  }
+
+  state.spiralPaths = [];
+
+  if (state.mode === 'halftone') {
+    for (let i = 1; i < points.length; i++) {
+      const p0 = points[i-1], p1 = points[i];
+      const lw = (p0.lw + p1.lw) / 2;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = state.color;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      state.spiralPaths.push({ x1:p0.x, y1:p0.y, x2:p1.x, y2:p1.y, lw, mode:'solid' });
+    }
+  } else {
+    // Template — hollow tube
+    const EDGE = Math.max(0.5, outSize / 2500);
+    const normals = points.map((p, i) => {
+      const prev = points[Math.max(0, i-1)];
+      const next = points[Math.min(points.length-1, i+1)];
+      const dx = next.x - prev.x, dy = next.y - prev.y;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      return { nx: -dy/len, ny: dx/len };
+    });
+    const outer = points.map((p,i) => ({ x: p.x+normals[i].nx*(p.lw/2), y: p.y+normals[i].ny*(p.lw/2) }));
+    const inner = points.map((p,i) => ({ x: p.x-normals[i].nx*(p.lw/2), y: p.y-normals[i].ny*(p.lw/2) }));
+    const last = points.length - 1;
+
+    ctx.beginPath();
+    ctx.moveTo(outer[0].x, outer[0].y);
+    for (let i=1; i<=last; i++) ctx.lineTo(outer[i].x, outer[i].y);
+    ctx.lineTo(inner[last].x, inner[last].y);
+    for (let i=last-1; i>=0; i--) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+    ctx.fillStyle = 'white';
+    ctx.lineWidth = EDGE;
+    ctx.strokeStyle = state.color;
+    ctx.lineJoin = 'round';
+    ctx.fill();
+    ctx.stroke();
+
+    for (let i=1; i<points.length; i++) {
+      const p0=points[i-1], p1=points[i];
+      const n0=normals[i-1], n1=normals[i];
+      const h0=p0.lw/2, h1=p1.lw/2;
+      state.spiralPaths.push({
+        mode:'template',
+        ox1:p0.x+n0.nx*h0, oy1:p0.y+n0.ny*h0, ox2:p1.x+n1.nx*h1, oy2:p1.y+n1.ny*h1,
+        ix1:p0.x-n0.nx*h0, iy1:p0.y-n0.ny*h0, ix2:p1.x-n1.nx*h1, iy2:p1.y-n1.ny*h1,
+        edgeW: EDGE
+      });
+    }
+  }
+}
+
+// ── EXPORT SHEET ────────────────────────────────────────────────────────────
+function showExportSheet() {
+  document.getElementById('exportSheet').classList.add('show');
+}
+function hideExportSheet(e) {
+  if (e.target === document.getElementById('exportSheet'))
+    document.getElementById('exportSheet').classList.remove('show');
+}
+
+// ── EXPORTS ────────────────────────────────────────────────────────────────
+function exportPNG() {
+  const canvas = document.getElementById('spiralCanvas');
+  if (!canvas.width) return;
+  hideExportSheet({target:null});
+  const link = document.createElement('a');
+  link.download = 'spiral-art.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('PNG salvo!');
+}
+
+function exportSVG() {
+  const paths = state.spiralPaths;
+  if (!paths.length) return;
+  hideExportSheet({target:null});
+  const size = 1200;
+  const c = state.color;
+  let svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">\n<rect width="${size}" height="${size}" fill="white"/>\n`;
+
+  if (paths[0].mode === 'solid') {
+    for (const p of paths)
+      svg += `<line x1="${p.x1.toFixed(1)}" y1="${p.y1.toFixed(1)}" x2="${p.x2.toFixed(1)}" y2="${p.y2.toFixed(1)}" stroke="${c}" stroke-width="${p.lw.toFixed(2)}" stroke-linecap="round"/>\n`;
+  } else {
+    const ew = paths[0].edgeW.toFixed(2);
+    let od = `M ${paths[0].ox1.toFixed(1)} ${paths[0].oy1.toFixed(1)}`;
+    let id2 = `M ${paths[0].ix1.toFixed(1)} ${paths[0].iy1.toFixed(1)}`;
+    for (const p of paths) {
+      od += ` L ${p.ox2.toFixed(1)} ${p.oy2.toFixed(1)}`;
+      id2 += ` L ${p.ix2.toFixed(1)} ${p.iy2.toFixed(1)}`;
+    }
+    const last = paths[paths.length-1];
+    svg += `<path d="${od}" fill="none" stroke="${c}" stroke-width="${ew}" stroke-linejoin="round" stroke-linecap="round"/>\n`;
+    svg += `<path d="${id2}" fill="none" stroke="${c}" stroke-width="${ew}" stroke-linejoin="round" stroke-linecap="round"/>\n`;
+    svg += `<line x1="${last.ox2.toFixed(1)}" y1="${last.oy2.toFixed(1)}" x2="${last.ix2.toFixed(1)}" y2="${last.iy2.toFixed(1)}" stroke="${c}" stroke-width="${ew}" stroke-linecap="round"/>\n`;
+    svg += `<line x1="${paths[0].ox1.toFixed(1)}" y1="${paths[0].oy1.toFixed(1)}" x2="${paths[0].ix1.toFixed(1)}" y2="${paths[0].iy1.toFixed(1)}" stroke="${c}" stroke-width="${ew}" stroke-linecap="round"/>\n`;
+  }
+  svg += '</svg>';
+
+  const blob = new Blob([svg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.download = 'spiral-art.svg'; a.href = url; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('SVG salvo!');
+}
+
+function exportPDF() {
+  const canvas = document.getElementById('spiralCanvas');
+  if (!canvas.width) return;
+  hideExportSheet({target:null});
+
+  const PAGE_W=595.28, PAGE_H=841.89, MARGIN=28;
+  const imgSide = Math.min(PAGE_W-MARGIN*2, PAGE_H-MARGIN*2);
+  const imgX = ((PAGE_W-imgSide)/2).toFixed(2);
+  const imgY = ((PAGE_H-imgSide)/2).toFixed(2);
+
+  const dataURL = canvas.toDataURL('image/jpeg', 0.95);
+  const b64 = dataURL.split(',')[1];
+  const binary = atob(b64);
+  const imgBytes = new Uint8Array(binary.length);
+  for (let i=0; i<binary.length; i++) imgBytes[i] = binary.charCodeAt(i);
+
+  const enc = s => new TextEncoder().encode(s);
+  const parts = []; const offsets = [];
+  function push(s) { parts.push(enc(s)); }
+  function pushB(b) { parts.push(b); }
+  function totalLen() { return parts.reduce((a,p)=>a+p.length,0); }
+
+  push('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+  offsets.push(totalLen());
+  push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offsets.push(totalLen());
+  push('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  offsets.push(totalLen());
+  push(`3 0 obj\n<< /Type /Page /Parent 2 0 R\n   /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}]\n   /Contents 4 0 R\n   /Resources << /XObject << /Im0 5 0 R >> >>\n>>\nendobj\n`);
+  const sc = `q\n${imgSide.toFixed(2)} 0 0 ${imgSide.toFixed(2)} ${imgX} ${imgY} cm\n/Im0 Do\nQ\n`;
+  offsets.push(totalLen());
+  push(`4 0 obj\n<< /Length ${sc.length} >>\nstream\n${sc}endstream\nendobj\n`);
+  offsets.push(totalLen());
+  push(`5 0 obj\n<< /Type /XObject /Subtype /Image\n   /Width ${canvas.width} /Height ${canvas.height}\n   /ColorSpace /DeviceRGB /BitsPerComponent 8\n   /Filter /DCTDecode /Length ${imgBytes.length}\n>>\nstream\n`);
+  pushB(imgBytes);
+  push('\nendstream\nendobj\n');
+
+  const xrefPos = totalLen();
+  let xref = `xref\n0 6\n0000000000 65535 f \n`;
+  for (const off of offsets) xref += String(off).padStart(10,'0')+' 00000 n \n';
+  push(xref);
+  push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`);
+
+  const total = parts.reduce((a,p)=>a+p.length,0);
+  const out = new Uint8Array(total);
+  let pos=0;
+  for (const p of parts) { out.set(p, pos); pos+=p.length; }
+
+  const blob = new Blob([out], {type:'application/pdf'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.download = 'spiral-art.pdf'; a.href = url; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('PDF salvo!');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
