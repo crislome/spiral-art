@@ -54,17 +54,19 @@ export default function GeneratorPage() {
       </div>
 
       {/* Canvas area */}
-      <div className="flex-1 flex items-center justify-center px-8 min-h-0">
-        <div className="relative" style={{ width:'min(calc(100vw - 4rem), 500px)', aspectRatio:'1' }}>
+      <div className="flex-1 flex items-center justify-center min-h-0 px-4" style={{ padding:'0.5rem 1rem' }}>
+        <div className="relative flex items-center justify-center" style={{ width:'100%', maxWidth:520, aspectRatio:'1', margin:'0 auto' }}>
           <div className="w-full h-full rounded-full overflow-hidden"
             style={{ boxShadow:'0 0 0 1px var(--border), 0 20px 60px rgba(0,0,0,0.5)' }}>
             <SpiralCanvas ref={canvasRef} />
           </div>
 
           {!hasImage && (
-            <div className="absolute inset-0 rounded-full flex flex-col items-center justify-center gap-3 cursor-pointer"
+            <div
+              className="absolute inset-0 rounded-full flex flex-col items-center justify-center gap-3 cursor-pointer"
               style={{ background:'var(--surface)', border:'2px dashed var(--border)' }}
-              onClick={triggerUpload}>
+              onClick={triggerUpload}
+            >
               <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
                 style={{ background:'var(--surface2)', color:'var(--muted)' }}>🖼</div>
               <span style={{ fontSize:'0.72rem', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>
@@ -74,7 +76,7 @@ export default function GeneratorPage() {
           )}
 
           {hasImage && (
-            <div className="absolute flex flex-col gap-2" style={{ right:'-3.25rem', top:'50%', transform:'translateY(-50%)' }}>
+            <div className="absolute flex flex-col gap-2" style={{ right:'-3rem', top:'50%', transform:'translateY(-50%)' }}>
               <button onClick={triggerUpload}
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90"
                 style={{ background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', fontSize:'1rem', cursor:'pointer' }}>

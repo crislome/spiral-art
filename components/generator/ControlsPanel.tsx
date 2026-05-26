@@ -27,7 +27,14 @@ export function ControlsPanel() {
   const cfg = SLIDER_CONFIG[activeTab]
 
   return (
-    <div className="flex flex-col gap-0" style={{ background:'var(--surface)', borderTop:'1px solid var(--border)', borderRadius:'20px 20px 0 0', padding:'1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}>
+    <div className="flex flex-col gap-0" style={{
+      background:'var(--surface)',
+      borderTop:'1px solid var(--border)',
+      borderRadius:'20px 20px 0 0',
+      padding:'1rem 1.25rem',
+      paddingBottom:'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+      maxWidth: '100%',
+    }}>
 
       {/* Mode toggle */}
       <div className="flex gap-2 mb-4 justify-center">
