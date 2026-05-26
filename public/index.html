@@ -167,7 +167,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 8px;
   overflow: hidden;
   position: relative;
   background: var(--bg);
@@ -434,7 +434,7 @@ body {
   .panel-section { padding: 0.9rem 1rem 0; }
   .panel-section:last-child { padding-bottom: calc(1rem + var(--safe-b)); }
 
-  .canvas-area { padding: 0.75rem; }
+  .canvas-area { padding: 4px; }
 
   .canvas-fabs {
     right: -2.5rem;
@@ -703,10 +703,12 @@ function updateThemeBtn(theme) {
 function resizeCanvas() {
   const area = document.getElementById('canvasArea')
   const isMobile = window.innerWidth <= 680
-  const pad = isMobile ? 24 : 48
+  // Minimal padding — circle fills the area like Spiral Betty
+  const pad = isMobile ? 8 : 16
   const maxW = area.offsetWidth - pad
   const maxH = area.offsetHeight - pad
-  const size = Math.min(maxW, maxH, 600)
+  // No max cap on desktop — let it grow to fill the space
+  const size = Math.min(maxW, maxH)
   const ring = document.getElementById('canvasRing')
   ring.style.width = size + 'px'
   ring.style.height = size + 'px'
